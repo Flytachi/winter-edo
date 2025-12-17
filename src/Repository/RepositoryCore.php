@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Flytachi\Winter\Edo\Repository;
 
-use Flytachi\DbMapping\DbMapRepoInterface;
 use Flytachi\Winter\Base\Interface\Stereotype;
 use Flytachi\Winter\Cdo\Connection\CDO;
 use Flytachi\Winter\Cdo\ConnectionPool;
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\EntityInterface;
 use Flytachi\Winter\Edo\Entity\RepositoryInterface;
+use Flytachi\Winter\Edo\Mapping\RepositoryMappingInterface;
 use stdClass;
 
-abstract class RepositoryCore extends Stereotype implements RepositoryInterface, DbMapRepoInterface
+abstract class RepositoryCore extends Stereotype implements RepositoryInterface, RepositoryMappingInterface
 {
     /** @var class-string $dbConfigClassName dbConfig class name (default => DbConfig::class) */
     protected string $dbConfigClassName;
