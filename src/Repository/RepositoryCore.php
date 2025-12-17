@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Flytachi\Winter\Edo;
+namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\DbMapping\DbMapRepoInterface;
 use Flytachi\Winter\Base\Interface\Stereotype;

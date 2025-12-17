@@ -12,7 +12,7 @@ interface RepositoryInterface
     public function db(): CDO;
     public function getSchema(): ?string;
     public function originTable(): string;
-    public function getModelClassName(): string;
+    public function getEntityClassName(): string;
     public function getDbConfigClassName(): string;
     public function buildSql(): string;
     public function getSql(?string $param = null): mixed;

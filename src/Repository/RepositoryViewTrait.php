@@ -6,7 +6,6 @@ namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\RepositoryViewInterface;
-use Flytachi\Winter\Edo\RepositoryException;
 use PDO;
 
 /**

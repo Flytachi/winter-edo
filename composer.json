@@ -10,7 +10,9 @@
     },
     "require": {
         "php": ">=8.3",
-        "flytachi/winter-cdo": "^1.0"
+        "flytachi/winter-cdo": "^1.0",
+        "flytachi/db-mapping": "^1.0",
+        "ext-pdo": "*"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "@stable"

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Flytachi\Winter\Edo;
+namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\Winter\Base\Exception\Exception;
 use Psr\Log\LogLevel;

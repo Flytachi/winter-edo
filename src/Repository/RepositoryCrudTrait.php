@@ -7,7 +7,6 @@ namespace Flytachi\Winter\Edo\Repository;
 use Flytachi\Winter\Cdo\Connection\CDOException;
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\RepositoryCrudInterface;
-use Flytachi\Winter\Edo\RepositoryException;
 
 /**
  * @mixin RepositoryCrudInterface
