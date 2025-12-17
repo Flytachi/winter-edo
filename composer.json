@@ -1,0 +1,24 @@
+{
+    "name": "flytachi/winter-edo",
+    "description": "Winter framework 'Entity of Database objects' component",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Flytachi\\Winter\\Edo\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=8.3",
+        "flytachi/winter-cdo": "^1.0"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "@stable"
+    },
+    "authors": [
+        {
+            "name": "Flytachi",
+            "email": "jasur.rakhmatov03@gmail.com"
+        }
+    ]
+}
