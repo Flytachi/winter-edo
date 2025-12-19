@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\Winter\Cdo\Qb;
+use Flytachi\Winter\Edo\Entity\EntityException;
 use Flytachi\Winter\Edo\Entity\RepositoryViewInterface;
 use PDO;
 
@@ -116,7 +117,7 @@ trait RepositoryViewTrait
      * @param string $message The error message to be thrown if the record is not found. Defaults to 'Object not found'.
      *
      * @return object Returns the found record if it exists.
-     * @throws RepositoryException
+     * @throws EntityException
      */
     final public static function findByIdOrThrow(
         int|string $id,
@@ -125,7 +126,7 @@ trait RepositoryViewTrait
     ): object {
         $obj = static::findById($id, $entityClassName);
         if (!$obj) {
-            throw new RepositoryException($message);
+            throw new EntityException($message);
         }
         return $obj;
     }
@@ -152,17 +153,22 @@ trait RepositoryViewTrait
      * @param string $message The error message to throw if the record is not found. Defaults to 'Object not found'.
      *
      * @return object Returns the found record if it exists, or throws
-     * @throws RepositoryException
+     * @throws EntityException
      */
     final public static function findByOrThrow(
         Qb $qb,
         ?string $entityClassName = null,
         string $message = 'Entity not found'
     ): object {
-        $obj = static::findBy($qb, $entityClassName);
-        if (!$obj) {
-            throw new RepositoryException($message);
+        try {
+            $obj = static::findBy($qb, $entityClassName);
+            if (!$obj) {
+                throw new EntityException($message);
+            }
+        } catch (RepositoryException $e) {
+            throw new EntityException($message, previous: $e);
         }
+
         return $obj;
     }
 
