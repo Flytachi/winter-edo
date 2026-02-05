@@ -264,6 +264,39 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         return $this;
     }
 
+    final public function andWhere(Qb $qb): static
+    {
+        return $this->addWhere($qb, 'AND');
+    }
+
+    final public function orWhere(Qb $qb): static
+    {
+        return $this->addWhere($qb, 'OR');
+    }
+
+    final public function xorWhere(Qb $qb): static
+    {
+        return $this->addWhere($qb, 'XOR');
+    }
+
+    private function addWhere(Qb $qb, string $operator): static
+    {
+        if ($qb->getQuery()) {
+            if (empty($this->sqlParts['where'])) {
+                $this->sqlParts['where'] = 'WHERE ' . $qb->getQuery();
+            } else {
+                $this->sqlParts['where'] .= " $operator " . $qb->getQuery();
+            }
+
+            if (isset($this->sqlParts['binds'])) {
+                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$qb->getCache()];
+            } else {
+                $this->sqlParts['binds'] = $qb->getCache();
+            }
+        }
+        return $this;
+    }
+
     /**
      * @param string $context
      * @return static
