@@ -31,7 +31,7 @@ trait RepositoryViewTrait
             $this->limit(1);
             $stmt = $this->db()->prepare($this->buildSql());
             // Bind
-            if (array_key_exists('binds', $this->sqlParts)) {
+            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
                 foreach ($this->sqlParts['binds'] as $hash => $value) {
                     $stmt->bindValue($hash, $value);
                 }
@@ -55,7 +55,7 @@ trait RepositoryViewTrait
             $this->limit(1);
             $stmt = $this->db()->prepare($this->buildSql());
             // Bind
-            if (array_key_exists('binds', $this->sqlParts)) {
+            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
                 foreach ($this->sqlParts['binds'] as $hash => $value) {
                     $stmt->bindValue($hash, $value);
                 }
@@ -81,7 +81,7 @@ trait RepositoryViewTrait
             }
             $stmt = $this->db()->prepare($this->buildSql());
             // Bind
-            if (array_key_exists('binds', $this->sqlParts)) {
+            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
                 foreach ($this->sqlParts['binds'] as $hash => $value) {
                     $stmt->bindValue($hash, $value);
                 }
@@ -89,6 +89,53 @@ trait RepositoryViewTrait
             $stmt->execute();
             $this->cleanCache();
             return $stmt->fetchAll(PDO::FETCH_CLASS, $entityClassName ?: $this->entityClassName);
+        } catch (\Throwable $th) {
+            throw new RepositoryException($th->getMessage(), previous: $th);
+        }
+    }
+
+    /**
+     * @return int
+     * @throws RepositoryException
+     */
+    final public function count(): int
+    {
+        try {
+            $this->sqlParts['option'] = 'COUNT(' . ($this->sqlParts['option'] ?? '*') . ')';
+            $stmt = $this->db()->prepare($this->buildSql());
+            // Bind
+            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
+                foreach ($this->sqlParts['binds'] as $hash => $value) {
+                    $stmt->bindValue($hash, $value);
+                }
+            }
+            $stmt->execute();
+            $this->cleanCache();
+            return (int) $stmt->fetchColumn(0);
+        } catch (\Throwable $th) {
+            throw new RepositoryException($th->getMessage(), previous: $th);
+        }
+    }
+
+    /**
+     * @return bool
+     * @throws RepositoryException
+     */
+    final public function exists(): bool
+    {
+        try {
+            $this->sqlParts['option'] = '1';
+            $this->limit(1);
+            $stmt = $this->db()->prepare($this->buildSql());
+            // Bind
+            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
+                foreach ($this->sqlParts['binds'] as $hash => $value) {
+                    $stmt->bindValue($hash, $value);
+                }
+            }
+            $stmt->execute();
+            $this->cleanCache();
+            return (bool) $stmt->fetchColumn(0);
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }

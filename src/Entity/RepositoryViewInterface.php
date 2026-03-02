@@ -11,6 +11,8 @@ interface RepositoryViewInterface extends RepositoryInterface
     public function find(?string $entityClassName = null): mixed;
     public function findColumn(int $column = 0): mixed;
     public function findAll(?string $entityClassName = null): ?array;
+    public function count(): int;
+    public function exists(): bool;
     public static function findById(int|string $id, ?string $entityClassName = null): mixed;
     public static function findBy(Qb $qb, ?string $entityClassName = null): mixed;
     public static function findAllBy(?Qb $qb = null, ?string $entityClassName = null): array|false;
