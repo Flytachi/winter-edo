@@ -92,10 +92,16 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
                 'FROM ' . ($this->sqlParts['from'] ?? $this->originTable())
             ];
 
-            foreach (['as', 'join', 'where', 'group', 'having', 'order'] as $key) {
+            foreach (['as', 'join', 'where', 'group', 'having'] as $key) {
                 if (isset($this->sqlParts[$key])) {
                     $parts[] = trim($this->sqlParts[$key]);
                 }
+            }
+            if (isset($this->sqlParts['union'])) {
+                $parts[] = $this->sqlParts['union'];
+            }
+            if (isset($this->sqlParts['order'])) {
+                $parts[] = trim($this->sqlParts['order']);
             }
             if (isset($this->sqlParts['limit'])) {
                 $parts[] = 'LIMIT ' . $this->sqlParts['limit'];
@@ -448,6 +454,44 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     {
         $this->sqlParts['with_recursive'] = true;
         return $this->with($name, $repository);
+    }
+
+    /**
+     * @param RepositoryInterface $repository
+     * @return static
+     */
+    final public function union(RepositoryInterface $repository): static
+    {
+        return $this->addUnion($repository, 'UNION');
+    }
+
+    /**
+     * @param RepositoryInterface $repository
+     * @return static
+     */
+    final public function unionAll(RepositoryInterface $repository): static
+    {
+        return $this->addUnion($repository, 'UNION ALL');
+    }
+
+    private function addUnion(RepositoryInterface $repository, string $keyword): static
+    {
+        if (isset($this->sqlParts['binds'])) {
+            if (!empty($repository->getSql('binds'))) {
+                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds')];
+            }
+        } else {
+            $this->sqlParts['binds'] = $repository->getSql('binds');
+        }
+
+        $unionPart = $keyword . ' ' . $repository->buildSql();
+
+        if (isset($this->sqlParts['union'])) {
+            $this->sqlParts['union'] .= ' ' . $unionPart;
+        } else {
+            $this->sqlParts['union'] = $unionPart;
+        }
+        return $this;
     }
 
     public function mapIdentifierColumnName(): string

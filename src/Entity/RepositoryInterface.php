@@ -24,6 +24,9 @@ interface RepositoryInterface
     public function joinLeft(string|RepositoryInterface $repository, string $on): static;
     public function joinRight(string|RepositoryInterface $repository, string $on): static;
     public function where(?Qb $qb): static;
+    public function andWhere(Qb $qb): static;
+    public function orWhere(Qb $qb): static;
+    public function xorWhere(Qb $qb): static;
     public function groupBy(string $context): static;
     public function having(string $context): static;
     public function orderBy(string $context): static;
@@ -32,4 +35,6 @@ interface RepositoryInterface
     public function from(string|RepositoryInterface $repository): static;
     public function with(string $name, RepositoryInterface $repository, ?string $modifier = null): static;
     public function withRecursive(string $name, RepositoryInterface $repository): static;
+    public function union(RepositoryInterface $repository): static;
+    public function unionAll(RepositoryInterface $repository): static;
 }
