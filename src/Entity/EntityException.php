@@ -9,5 +9,5 @@ use Psr\Log\LogLevel;
 
 class EntityException extends Exception
 {
-    protected string $logLevel = LogLevel::ERROR;
+    protected string $logLevel = LogLevel::WARNING;
 }

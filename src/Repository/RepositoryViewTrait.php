@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Flytachi\Winter\Edo\Repository;
 
+use Flytachi\Winter\Base\HttpCode;
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\EntityException;
 use Flytachi\Winter\Edo\Entity\RepositoryViewInterface;
@@ -148,34 +149,13 @@ trait RepositoryViewTrait
      * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
      *
      * @return object|null Returns the found record if it exists, or null if it does not.
+     * @throws RepositoryException
      */
     final public static function findById(int|string $id, ?string $entityClassName = null): ?object
     {
         return (new static())
             ->where(Qb::eq('id', $id))
             ->find($entityClassName);
-    }
-
-    /**
-     * Finds a record by its ID or throws an error if the record is not found.
-     *
-     * @param int|string $id The ID of the record to find.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     * @param string $message The error message to be thrown if the record is not found. Defaults to 'Object not found'.
-     *
-     * @return object Returns the found record if it exists.
-     * @throws EntityException
-     */
-    final public static function findByIdOrThrow(
-        int|string $id,
-        ?string $entityClassName = null,
-        string $message = 'Entity not found'
-    ): object {
-        $obj = static::findById($id, $entityClassName);
-        if (!$obj) {
-            throw new EntityException($message);
-        }
-        return $obj;
     }
 
     /**
@@ -193,33 +173,6 @@ trait RepositoryViewTrait
     }
 
     /**
-     * Finds a record using the provided Qb object and throws an error if the record does not exist.
-     *
-     * @param Qb $qb The Qb object used to search for the record.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     * @param string $message The error message to throw if the record is not found. Defaults to 'Object not found'.
-     *
-     * @return object Returns the found record if it exists, or throws
-     * @throws EntityException
-     */
-    final public static function findByOrThrow(
-        Qb $qb,
-        ?string $entityClassName = null,
-        string $message = 'Entity not found'
-    ): object {
-        try {
-            $obj = static::findBy($qb, $entityClassName);
-            if (!$obj) {
-                throw new EntityException($message);
-            }
-        } catch (RepositoryException $e) {
-            throw new EntityException($message, previous: $e);
-        }
-
-        return $obj;
-    }
-
-    /**
      * Finds multiple records based on a set of conditions.
      *
      * @param null|Qb $qb The conditions to use for finding the records. Defaults to null.
@@ -230,6 +183,56 @@ trait RepositoryViewTrait
      */
     final public static function findAllBy(?Qb $qb = null, ?string $entityClassName = null): array
     {
-        return (new static())->where($qb)->findAll($entityClassName);
+        return (new static())
+            ->where($qb)
+            ->findAll($entityClassName);
+    }
+
+    /**
+     * Finds a record by its ID or throws an error if the record is not found.
+     *
+     * @param int|string $id The ID of the record to find.
+     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
+     * @param string $message The error message to be thrown if the record is not found. Defaults to 'Object not found'.
+     * @param HttpCode $httpCode The HTTP status code to be used in the error response. Defaults to HttpCode::NOT_FOUND.
+     *
+     * @return object Returns the found record if it exists.
+     * @throws EntityException|RepositoryException
+     */
+    final public static function findByIdOrThrow(
+        int|string $id,
+        ?string $entityClassName = null,
+        string $message = 'Entity not found',
+        HttpCode $httpCode = HttpCode::NOT_FOUND
+    ): object {
+        $obj = static::findById($id, $entityClassName);
+        if (!$obj) {
+            throw new EntityException($message, $httpCode->value);
+        }
+        return $obj;
+    }
+
+    /**
+     * Finds a record using the provided Qb object and throws an error if the record does not exist.
+     *
+     * @param Qb $qb The Qb object used to search for the record.
+     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
+     * @param string $message The error message to throw if the record is not found. Defaults to 'Object not found'.
+     * @param HttpCode $httpCode The HTTP status code to be used in the error response. Defaults to HttpCode::NOT_FOUND.
+     *
+     * @return object Returns the found record if it exists or throws
+     * @throws EntityException|RepositoryException
+     */
+    final public static function findByOrThrow(
+        Qb $qb,
+        ?string $entityClassName = null,
+        string $message = 'Entity not found',
+        HttpCode $httpCode = HttpCode::NOT_FOUND
+    ): object {
+        $obj = static::findBy($qb, $entityClassName);
+        if (!$obj) {
+            throw new EntityException($message, $httpCode->value);
+        }
+        return $obj;
     }
 }
