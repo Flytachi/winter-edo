@@ -174,7 +174,7 @@ trait RepositoryViewTrait
      */
     final public static function findById(int|string $id, ?string $entityClassName = null): ?object
     {
-        $instance = new static;
+        $instance = new static();
         return $instance
             ->where(Qb::eq($instance->mapIdentifierColumnName(), $id))
             ->find($entityClassName);
