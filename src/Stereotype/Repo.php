@@ -13,4 +13,10 @@ use Flytachi\Winter\Edo\Repository\RepositoryViewTrait;
 final class Repo extends RepositoryCore implements RepositoryViewInterface
 {
     use RepositoryViewTrait;
+
+    final public function __construct(string $dbConfigClassName)
+    {
+        $this->dbConfigClassName = $dbConfigClassName;
+        parent::__construct();
+    }
 }

@@ -11,4 +11,9 @@ use Flytachi\Winter\Edo\Repository\RepositoryViewTrait;
 abstract class RepositoryView extends RepositoryCore implements RepositoryViewInterface
 {
     use RepositoryViewTrait;
+
+    final public function __construct()
+    {
+        parent::__construct();
+    }
 }

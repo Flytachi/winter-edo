@@ -26,7 +26,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     /** @var array $sqlParts sql parameters */
     protected array $sqlParts = [];
 
-    final public function __construct()
+    public function __construct()
     {
         parent::__construct();
         if (!isset($this->dbConfigClassName)) {

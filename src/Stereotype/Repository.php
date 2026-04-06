@@ -14,4 +14,9 @@ abstract class Repository extends RepositoryCore implements RepositoryCrudInterf
 {
     use RepositoryCrudTrait;
     use RepositoryViewTrait;
+
+    final public function __construct()
+    {
+        parent::__construct();
+    }
 }

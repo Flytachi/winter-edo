@@ -11,4 +11,9 @@ use Flytachi\Winter\Edo\Repository\RepositoryCrudTrait;
 abstract class RepositoryCrud extends RepositoryCore implements RepositoryCrudInterface
 {
     use RepositoryCrudTrait;
+
+    final public function __construct()
+    {
+        parent::__construct();
+    }
 }
