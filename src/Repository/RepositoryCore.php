@@ -222,7 +222,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      * @param string|RepositoryInterface $repository
      * @return static
      */
-    final public function crossJoin(string|RepositoryInterface $repository): static
+    final public function joinCross(string|RepositoryInterface $repository): static
     {
         if (!is_string($repository)) {
             if (count($repository->sqlParts) > 1) {
