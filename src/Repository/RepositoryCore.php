@@ -22,7 +22,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     /** @var string|null $schema schema in database */
     protected ?string $schema = null;
     /** @var string $table name of the table in the database */
-    public static string $table;
+    public static string $table = '';
     /** @var array $sqlParts sql parameters */
     protected array $sqlParts = [];
 
@@ -78,6 +78,9 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      */
     public function originTable(): string
     {
+        if (empty(static::$table)) {
+            return '';
+        }
         return (($this->schema) ? $this->schema . '.' : '') . static::$table;
     }
 
