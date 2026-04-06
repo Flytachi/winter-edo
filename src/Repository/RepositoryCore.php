@@ -90,10 +90,10 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     public function buildSql(): string
     {
         try {
-            $parts = [
-                'SELECT ' . $this->prepareSelect(),
-                'FROM ' . ($this->sqlParts['from'] ?? $this->originTable())
-            ];
+            $parts = ['SELECT ' . $this->prepareSelect()];
+            if (!empty(($this->sqlParts['from'] ?? $this->originTable()))) {
+                $parts[] = 'FROM ' . ($this->sqlParts['from'] ?? $this->originTable());
+            }
 
             foreach (['as', 'join', 'where', 'group', 'having'] as $key) {
                 if (isset($this->sqlParts[$key])) {
