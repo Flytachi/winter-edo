@@ -225,12 +225,16 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     final public function crossJoin(string|RepositoryInterface $repository): static
     {
         if (!is_string($repository)) {
-            if (isset($this->sqlParts['binds'])) {
-                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds') ?? []];
+            if (count($repository->sqlParts) > 1) {
+                if (isset($this->sqlParts['binds'])) {
+                    $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds') ?? []];
+                } else {
+                    $this->sqlParts['binds'] = $repository->getSql('binds') ?? [];
+                }
+                $repository = '(' . $repository->getSql() . ') ' . $repository->getSql('as');
             } else {
-                $this->sqlParts['binds'] = $repository->getSql('binds') ?? [];
+                $repository = $repository->originTable() . ' ' . $repository->getSql('as');
             }
-            $repository = '(' . $repository->getSql() . ') ' . $repository->getSql('as');
         }
         if (isset($this->sqlParts['join'])) {
             $this->sqlParts['join'] .= ' CROSS JOIN ' . $repository;
