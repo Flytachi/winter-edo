@@ -19,6 +19,7 @@ interface RepositoryInterface
     public function cleanCache(?string $param = null): void;
     public function select(string $option): static;
     public function as(string $alias): static;
+    public function crossJoin(string $repository): static;
     public function join(string|RepositoryInterface $repository, string $on): static;
     public function joinInner(string|RepositoryInterface $repository, string $on): static;
     public function joinLeft(string|RepositoryInterface $repository, string $on): static;

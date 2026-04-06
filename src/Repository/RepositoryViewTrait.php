@@ -19,6 +19,27 @@ use PDO;
 trait RepositoryViewTrait
 {
     /**
+     * @param string $sql
+     * @param array $binds
+     * @param string|null $entityClassName
+     * @return array<object>
+     * @throws RepositoryException
+     */
+    final public function rawFetch(string $sql, array $binds = [], ?string $entityClassName = null): array
+    {
+        try {
+            $stmt = $this->db()->prepare($sql);
+            foreach ($binds as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_CLASS, $entityClassName ?: $this->entityClassName);
+        } catch (\Throwable $th) {
+            throw new RepositoryException($th->getMessage(), previous: $th);
+        }
+    }
+
+    /**
      * @param string|null $entityClassName
      * @return null|object
      * @throws RepositoryException
@@ -153,8 +174,9 @@ trait RepositoryViewTrait
      */
     final public static function findById(int|string $id, ?string $entityClassName = null): ?object
     {
-        return (new static())
-            ->where(Qb::eq('id', $id))
+        $instance = new static;
+        return $instance
+            ->where(Qb::eq($instance->mapIdentifierColumnName(), $id))
             ->find($entityClassName);
     }
 

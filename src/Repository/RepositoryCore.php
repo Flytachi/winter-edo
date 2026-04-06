@@ -159,6 +159,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         } else {
             $prefix = isset($this->sqlParts['as']) ? $this->sqlParts['as'] . '.' : '';
             $values = [];
+            $selection = [];
             if (is_subclass_of($this->entityClassName, EntityInterface::class)) {
                 $selection = $this->entityClassName::selection();
             }
@@ -212,6 +213,20 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
             return $repository->originTable()
                 . ' ' . $repository->getSql('as') . " ON(" . $on . ")";
         }
+    }
+
+    /**
+     * @param string $repository
+     * @return static
+     */
+    final public function crossJoin(string $repository): static
+    {
+        if (isset($this->sqlParts['join'])) {
+            $this->sqlParts['join'] .= ' CROSS JOIN ' . $repository;
+        } else {
+            $this->sqlParts['join'] = 'CROSS JOIN ' . $repository;
+        }
+        return $this;
     }
 
     /**
@@ -376,7 +391,9 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
             throw new \TypeError('offset < 0');
         }
         $this->sqlParts['limit'] = $limit;
-        $this->sqlParts['offset'] = $offset;
+        if ($offset > 0) {
+            $this->sqlParts['offset'] = $offset;
+        }
         return $this;
     }
 
