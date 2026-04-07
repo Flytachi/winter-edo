@@ -16,6 +16,10 @@ final public function binding(?array $binds): static
 Merges an array of `CDOBind` objects into the accumulated bind store
 (`$sqlParts['binds']`). Passing `null` or an empty array is a safe no-op.
 
+Binds are stored as an associative array keyed by placeholder name, so reusing
+the same named `CDOBind` across multiple `Qb` conditions produces no duplicates —
+each name appears exactly once regardless of how many times it is referenced.
+
 ```php
 use Flytachi\Winter\Cdo\CDOBind;
 
@@ -41,9 +45,11 @@ $statusBind = new CDOBind(':status', 'active');
 
 UserRepository::instance()
     ->select('*, CASE WHEN status = :status THEN 1 ELSE 0 END AS is_active')
-    ->where(Qb::eq('status', $statusBind))   // reuses the same placeholder
-    ->binding([$statusBind])                  // also used in SELECT
+    ->where(Qb::eq('status', $statusBind))   // registers :status automatically
     ->findAll();
+// No need to call ->binding([$statusBind]) — where() already registers it.
+// If :status is only used in a raw select() expression and nowhere in Qb,
+// then ->binding([$statusBind]) is required.
 ```
 
 ---

@@ -376,7 +376,7 @@ class RepositoryCoreTest extends TestCase
     public function testWhereBindsAreStored(): void
     {
         $repo = $this->repo()->where(Qb::eq('id', 42));
-        $binds = $repo->getSql('binds');
+        $binds = array_values($repo->getSql('binds'));
         $this->assertIsArray($binds);
         $this->assertCount(1, $binds);
         $this->assertInstanceOf(\Flytachi\Winter\Cdo\CDOBind::class, $binds[0]);

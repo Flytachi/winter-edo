@@ -647,12 +647,9 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         if (empty($binds)) {
             return $this;
         }
-        if (empty($this->sqlParts['binds'])) {
-            $this->sqlParts['binds'] = $binds;
-        } else {
-            $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$binds];
+        foreach ($binds as $bind) {
+            $this->sqlParts['binds'][$bind->getName()] = $bind;
         }
-
         return $this;
     }
 
