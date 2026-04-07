@@ -118,13 +118,13 @@ $repo->upsert(
 | `Repository` | Need both reads and writes (most common) |
 | `RepositoryView` | Read-only (views, reports, projections) |
 | `RepositoryCrud` | Write-only (import pipelines, event sinks) |
-| `Repo` | Ad-hoc query without a dedicated class |
+| `CteRepo` | Ad-hoc query without a dedicated class |
 
 ```php
 // Ad-hoc:
-use Flytachi\Winter\Edo\Stereotype\Repo;
+use Flytachi\Winter\Edo\Stereotype\CteRepo;
 
-$rows = (new Repo(DbConfig::class))
+$rows = (new CteRepo(DbConfig::class))
     ->from('audit_log al')
     ->joinLeft('users u', 'al.user_id = u.id')
     ->where(Qb::gt('al.created_at', '2024-01-01'))

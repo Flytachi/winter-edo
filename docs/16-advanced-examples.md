@@ -217,13 +217,13 @@ $repo->upsertGroup(
 
 ---
 
-## 9. Ad-hoc query with Repo
+## 9. Ad-hoc query with CteRepo
 
 ```php
-use Flytachi\Winter\Edo\Stereotype\Repo;
+use Flytachi\Winter\Edo\Stereotype\CteRepo;
 
 // Raw aggregation across multiple tables — no dedicated repository needed.
-$stats = (new Repo(AppDbConfig::class))
+$stats = (new CteRepo(AppDbConfig::class))
     ->from('orders o')
     ->joinLeft('users u', 'o.user_id = u.id')
     ->select(

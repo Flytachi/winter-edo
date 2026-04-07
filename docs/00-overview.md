@@ -24,7 +24,7 @@ Stereotypes (concrete base classes to extend):
     ├── Repository      = RepositoryCore + CrudTrait + ViewTrait   (full access)
     ├── RepositoryView  = RepositoryCore + ViewTrait               (read-only)
     ├── RepositoryCrud  = RepositoryCore + CrudTrait               (write-only)
-    └── Repo            = RepositoryCore + ViewTrait (final, ad-hoc, no fixed table)
+    └── CteRepo         = RepositoryCore + ViewTrait (final, ad-hoc, no fixed table)
 
 Interfaces:
     ├── RepositoryInterface         — query-builder contract

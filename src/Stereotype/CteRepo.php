@@ -11,13 +11,13 @@ use Flytachi\Winter\Edo\Repository\RepositoryViewTrait;
 /**
  * Lightweight read-only repository for ad-hoc queries without a fixed table.
  *
- * Unlike the abstract stereotypes, `Repo` is a concrete final class that accepts
+ * Unlike the abstract stereotypes, `CteRepo` is a concrete final class that accepts
  * the database config class at construction time. Use it for one-off queries
  * that do not belong to a dedicated repository class.
  *
  * Example:
  * ```
- * $repo = new Repo(DbConfig::class);
+ * $repo = new CteRepo(DbConfig::class);
  * $results = $repo->from('reports r')
  *     ->where(Qb::eq('r.active', true))
  *     ->findAll();
@@ -25,7 +25,7 @@ use Flytachi\Winter\Edo\Repository\RepositoryViewTrait;
  *
  * @see RepositoryView  For abstract repository classes with a fixed table
  */
-final class Repo extends RepositoryCore implements RepositoryViewInterface
+final class CteRepo extends RepositoryCore implements RepositoryViewInterface
 {
     use RepositoryViewTrait;
 

@@ -12,7 +12,7 @@ Each one wires together `RepositoryCore` with the appropriate traits.
 | `Repository` | CrudTrait + ViewTrait | Need both reads and writes (most common) |
 | `RepositoryView` | ViewTrait | Read-only data source (views, reports, projections) |
 | `RepositoryCrud` | CrudTrait | Write-only (import pipelines, event sourcing sinks) |
-| `Repo` | ViewTrait | Ad-hoc query without a fixed table — instantiated directly |
+| `CteRepo` | ViewTrait | Ad-hoc query without a fixed table — instantiated directly |
 
 ---
 
@@ -87,18 +87,18 @@ Useful for append-only tables where reads happen elsewhere.
 
 ---
 
-## Repo — Ad-Hoc Queries
+## CteRepo — Ad-Hoc Queries
 
-`Repo` is a **final concrete** class. You instantiate it directly, passing the
+`CteRepo` is a **final concrete** class. You instantiate it directly, passing the
 config class name at construction time. Unlike the abstract stereotypes, it does
 not require subclassing — use it for one-off queries that don't belong to a
 dedicated repository.
 
 ```php
-use Flytachi\Winter\Edo\Stereotype\Repo;
+use Flytachi\Winter\Edo\Stereotype\CteRepo;
 
 // Ad-hoc query against any table:
-$repo = new Repo(DbConfig::class);
+$repo = new CteRepo(DbConfig::class);
 $rows = $repo
     ->from('audit_log al')
     ->joinLeft('users u', 'al.user_id = u.id')
