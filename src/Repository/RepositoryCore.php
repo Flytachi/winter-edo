@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\Winter\Base\Interface\Stereotype;
+use Flytachi\Winter\Cdo\CDOBind;
 use Flytachi\Winter\Cdo\Connection\CDO;
+use Flytachi\Winter\Cdo\Connection\CDOStatement;
 use Flytachi\Winter\Cdo\ConnectionPool;
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\EntityInterface;
@@ -13,6 +15,37 @@ use Flytachi\Winter\Edo\Entity\RepositoryInterface;
 use Flytachi\Winter\Edo\Mapping\RepositoryMappingInterface;
 use stdClass;
 
+/**
+ * Abstract base class for all repository implementations.
+ *
+ * Provides a fluent SQL query builder that follows SQL clause order:
+ * `WITH [RECURSIVE]` → `SELECT` → `FROM` → alias → `JOIN` → `WHERE` →
+ * `GROUP BY` → `HAVING` → `UNION` → `ORDER BY` → `LIMIT / OFFSET` → `FOR`.
+ *
+ * Subclasses must define {@see $dbConfigClassName} and {@see $table}.
+ * Optionally override {@see $entityClassName} for typed result hydration,
+ * and {@see $schema} to pin a specific database schema.
+ *
+ * Typical usage via stereotype:
+ * ```
+ * class UserRepository extends RepositoryCrud
+ * {
+ *     protected string $dbConfigClassName = DbConfig::class;
+ *     protected string $entityClassName   = UserEntity::class;
+ *     public static string $table         = 'users';
+ * }
+ *
+ * $users = UserRepository::instance('u')
+ *     ->joinLeft('orders o', 'u.id = o.user_id')
+ *     ->where(Qb::eq('u.status', 'active'))
+ *     ->orderBy('u.id DESC')
+ *     ->limit(20)
+ *     ->findAll();
+ * ```
+ *
+ * @see RepositoryCrudTrait  for INSERT / UPDATE / DELETE / UPSERT operations
+ * @see RepositoryViewTrait  for SELECT / find / count / exists operations
+ */
 abstract class RepositoryCore extends Stereotype implements RepositoryInterface, RepositoryMappingInterface
 {
     /** @var class-string $dbConfigClassName dbConfig class name (default => DbConfig::class) */
@@ -26,6 +59,10 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     /** @var array $sqlParts sql parameters */
     protected array $sqlParts = [];
 
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
@@ -38,6 +75,12 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         }
     }
 
+    /**
+     * Creates and returns a new repository instance, optionally with a table alias.
+     *
+     * @param string|null $as Optional table alias — calls {@see as()} before returning
+     * @return static
+     */
     public static function instance(?string $as = null): static
     {
         $repository = new static();
@@ -47,11 +90,25 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         return $repository;
     }
 
+    // -------------------------------------------------------------------------
+    // Getters
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the database configuration class name bound to this repository.
+     *
+     * @return class-string
+     */
     final public function getDbConfigClassName(): string
     {
         return $this->dbConfigClassName;
     }
 
+    /**
+     * Returns the entity class name used for hydrating query results.
+     *
+     * @return class-string
+     */
     final public function getEntityClassName(): string
     {
         return $this->entityClassName;
@@ -83,6 +140,10 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         }
         return (($this->schema) ? $this->schema . '.' : '') . static::$table;
     }
+
+    // -------------------------------------------------------------------------
+    // SQL management
+    // -------------------------------------------------------------------------
 
     /**
      * @throws RepositoryException
@@ -130,6 +191,10 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     }
 
     /**
+     * Returns a specific SQL part by key, or the full built SQL when $param is null.
+     *
+     * @param string|null $param Part key (e.g. `'where'`, `'order'`, `'binds'`), or null for full SQL
+     * @return mixed SQL part value, or full SQL string
      * @throws RepositoryException
      */
     final public function getSql(?string $param = null): mixed
@@ -141,6 +206,12 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         }
     }
 
+    /**
+     * Clears one specific SQL part (by key) or all accumulated SQL parts.
+     *
+     * @param string|null $param Part key to remove (e.g. `'where'`, `'order'`), or null to reset all
+     * @return void
+     */
     final public function cleanCache(?string $param = null): void
     {
         if ($param) {
@@ -150,6 +221,58 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         } else {
             $this->sqlParts = [];
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Query building — WITH
+    // -------------------------------------------------------------------------
+
+    /**
+     * @param string $name
+     * @param RepositoryInterface $repository
+     * @param string|null $modifier e.g. 'MATERIALIZED', 'NOT MATERIALIZED'
+     * @return static
+     */
+    final public function with(string $name, RepositoryInterface $repository, ?string $modifier = null): static
+    {
+        $this->binding($repository->getSql('binds'));
+        $cte = $modifier !== null
+            ? $name . ' AS ' . $modifier . ' (' . $repository->buildSql() . ')'
+            : $name . ' AS (' . $repository->buildSql() . ')';
+
+        if (isset($this->sqlParts['with'])) {
+            $this->sqlParts['with'] .= ', ' . $cte;
+        } else {
+            $this->sqlParts['with'] = $cte;
+        }
+        return $this;
+    }
+
+    /**
+     * @param string $name
+     * @param RepositoryInterface $repository
+     * @return static
+     */
+    final public function withRecursive(string $name, RepositoryInterface $repository): static
+    {
+        $this->sqlParts['with_recursive'] = true;
+        return $this->with($name, $repository);
+    }
+
+    // -------------------------------------------------------------------------
+    // Query building — SELECT
+    // -------------------------------------------------------------------------
+
+    /**
+     * @param string $option
+     * @return static
+     */
+    final public function select(string $option): static
+    {
+        if (!empty($option)) {
+            $this->sqlParts['option'] = $option;
+        }
+        return $this;
     }
 
     private function prepareSelect(): string
@@ -175,17 +298,34 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Query building — FROM
+    // -------------------------------------------------------------------------
+
     /**
-     * @param string $option
+     * @param string|RepositoryInterface $repository
      * @return static
      */
-    final public function select(string $option): static
+    final public function from(string|RepositoryInterface $repository): static
     {
-        if (!empty($option)) {
-            $this->sqlParts['option'] = $option;
+        if (isset($this->sqlParts['from'])) {
+            RepositoryException::throw('FROM clause already set: only one FROM source is allowed');
+        }
+        if (is_string($repository)) {
+            $this->sqlParts['from'] = $repository;
+        } else {
+            if (!isset($this->sqlParts['as'])) {
+                RepositoryException::throw('FROM subquery requires an alias: call ->as() before ->from()');
+            }
+            $this->binding($repository->getSql('binds'));
+            $this->sqlParts['from'] = '(' . $repository->getSql() . ')';
         }
         return $this;
     }
+
+    // -------------------------------------------------------------------------
+    // Query building — AS (alias)
+    // -------------------------------------------------------------------------
 
     /**
      * @param string $alias
@@ -199,17 +339,17 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         return $this;
     }
 
+    // -------------------------------------------------------------------------
+    // Query building — JOIN
+    // -------------------------------------------------------------------------
+
     private function joinedContext(string|RepositoryInterface $repository, string $on): string
     {
         if (is_string($repository)) {
             return $repository . " ON(" . $on . ")";
         }
         if (count($repository->sqlParts) > 1) {
-            if (isset($this->sqlParts['binds'])) {
-                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds')];
-            } else {
-                $this->sqlParts['binds'] = $repository->getSql('binds');
-            }
+            $this->binding($repository->getSql('binds'));
             return '(' . $repository->getSql() . ') '
                 . $repository->getSql('as') . " ON(" . $on . ")";
         } else {
@@ -226,11 +366,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     {
         if (!is_string($repository)) {
             if (count($repository->sqlParts) > 1) {
-                if (isset($this->sqlParts['binds'])) {
-                    $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds') ?? []];
-                } else {
-                    $this->sqlParts['binds'] = $repository->getSql('binds') ?? [];
-                }
+                $this->binding($repository->getSql('binds'));
                 $repository = '(' . $repository->getSql() . ') ' . $repository->getSql('as');
             } else {
                 $repository = $repository->originTable() . ' ' . $repository->getSql('as');
@@ -304,6 +440,10 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         return $this;
     }
 
+    // -------------------------------------------------------------------------
+    // Query building — WHERE
+    // -------------------------------------------------------------------------
+
     /**
      * @param null|Qb $qb
      * @return static
@@ -313,26 +453,46 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         if (!is_null($qb)) {
             if ($qb->getQuery()) {
                 $this->sqlParts['where'] = 'WHERE ' . $qb->getQuery();
-                if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                    $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$qb->getCache()];
-                } else {
-                    $this->sqlParts['binds'] = $qb->getCache();
-                }
+                $this->binding($qb->getBinds());
             }
         }
         return $this;
     }
 
+    /**
+     * Appends an `AND` condition to the existing `WHERE` clause.
+     *
+     * If no WHERE clause exists yet, acts as {@see where()}.
+     *
+     * @param Qb $qb Condition builder
+     * @return static
+     */
     final public function andWhere(Qb $qb): static
     {
         return $this->addWhere($qb, 'AND');
     }
 
+    /**
+     * Appends an `OR` condition to the existing `WHERE` clause.
+     *
+     * If no WHERE clause exists yet, acts as {@see where()}.
+     *
+     * @param Qb $qb Condition builder
+     * @return static
+     */
     final public function orWhere(Qb $qb): static
     {
         return $this->addWhere($qb, 'OR');
     }
 
+    /**
+     * Appends a `XOR` condition to the existing `WHERE` clause.
+     *
+     * If no WHERE clause exists yet, acts as {@see where()}.
+     *
+     * @param Qb $qb Condition builder
+     * @return static
+     */
     final public function xorWhere(Qb $qb): static
     {
         return $this->addWhere($qb, 'XOR');
@@ -346,15 +506,14 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
             } else {
                 $this->sqlParts['where'] .= " $operator " . $qb->getQuery();
             }
-
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$qb->getCache()];
-            } else {
-                $this->sqlParts['binds'] = $qb->getCache();
-            }
+            $this->binding($qb->getBinds());
         }
         return $this;
     }
+
+    // -------------------------------------------------------------------------
+    // Query building — GROUP BY / HAVING
+    // -------------------------------------------------------------------------
 
     /**
      * @param string $context
@@ -379,6 +538,45 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         }
         return $this;
     }
+
+    // -------------------------------------------------------------------------
+    // Query building — UNION
+    // -------------------------------------------------------------------------
+
+    /**
+     * @param RepositoryInterface $repository
+     * @return static
+     */
+    final public function union(RepositoryInterface $repository): static
+    {
+        return $this->addUnion($repository, 'UNION');
+    }
+
+    /**
+     * @param RepositoryInterface $repository
+     * @return static
+     */
+    final public function unionAll(RepositoryInterface $repository): static
+    {
+        return $this->addUnion($repository, 'UNION ALL');
+    }
+
+    private function addUnion(RepositoryInterface $repository, string $keyword): static
+    {
+        $this->binding($repository->getSql('binds'));
+        $unionPart = $keyword . ' ' . $repository->buildSql();
+
+        if (isset($this->sqlParts['union'])) {
+            $this->sqlParts['union'] .= ' ' . $unionPart;
+        } else {
+            $this->sqlParts['union'] = $unionPart;
+        }
+        return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Query building — ORDER BY / LIMIT / FOR
+    // -------------------------------------------------------------------------
 
     /**
      * @param string $context
@@ -422,109 +620,60 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
         return $this;
     }
 
+    // -------------------------------------------------------------------------
+    // Binds management
+    // -------------------------------------------------------------------------
+
     /**
-     * @param string|RepositoryInterface $repository
+     * Merges an array of bind parameters into the accumulated binds for this query.
+     *
+     * Called internally by `where()`, `join*()`, `with()`, `union*()`, and `from()`
+     * to collect all `CDOBind` objects before execution. Can also be called directly
+     * to attach custom binds when composing raw SQL fragments.
+     *
+     * Passing null or an empty array is a safe no-op.
+     *
+     * @param CDOBind[]|null $binds Array of {@see CDOBind} objects to merge, or null
      * @return static
      */
-    final public function from(string|RepositoryInterface $repository): static
+    final public function binding(?array $binds): static
     {
-        if (isset($this->sqlParts['from'])) {
-            RepositoryException::throw('FROM clause already set: only one FROM source is allowed');
+        if (empty($binds)) {
+            return $this;
         }
-        if (is_string($repository)) {
-            $this->sqlParts['from'] = $repository;
+        if (empty($this->sqlParts['binds'])) {
+            $this->sqlParts['binds'] = $binds;
         } else {
-            if (!isset($this->sqlParts['as'])) {
-                RepositoryException::throw('FROM subquery requires an alias: call ->as() before ->from()');
-            }
-            if (isset($this->sqlParts['binds'])) {
-                if (!empty($repository->getSql('binds'))) {
-                    $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds')];
-                }
-            } else {
-                $this->sqlParts['binds'] = $repository->getSql('binds');
-            }
-            $this->sqlParts['from'] = '(' . $repository->getSql() . ')';
+            $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$binds];
         }
+
         return $this;
     }
 
     /**
-     * @param string $name
-     * @param RepositoryInterface $repository
-     * @param string|null $modifier e.g. 'MATERIALIZED', 'NOT MATERIALIZED'
-     * @return static
+     * Binds all accumulated parameters to a prepared statement before execution.
+     *
+     * Uses `bindTypedValue()` when available (CDOStatement), otherwise falls back
+     * to `bindValue()` (PDOStatement). Called internally by all fetch methods in
+     * {@see RepositoryViewTrait} immediately after `prepare()`.
+     *
+     * @param CDOStatement|\PDOStatement $stmt Prepared statement to bind values onto
+     * @return void
      */
-    final public function with(string $name, RepositoryInterface $repository, ?string $modifier = null): static
+    final protected function useBind(CDOStatement|\PDOStatement $stmt): void
     {
-        if (isset($this->sqlParts['binds'])) {
-            if (!empty($repository->getSql('binds'))) {
-                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds')];
-            }
-        } else {
-            $this->sqlParts['binds'] = $repository->getSql('binds');
+        if (empty($this->sqlParts['binds'])) {
+            return;
         }
-
-        $cte = $modifier !== null
-            ? $name . ' AS ' . $modifier . ' (' . $repository->buildSql() . ')'
-            : $name . ' AS (' . $repository->buildSql() . ')';
-
-        if (isset($this->sqlParts['with'])) {
-            $this->sqlParts['with'] .= ', ' . $cte;
-        } else {
-            $this->sqlParts['with'] = $cte;
+        $method = method_exists($stmt, 'bindTypedValue') ? 'bindTypedValue' : 'bindValue';
+        foreach ($this->sqlParts['binds'] as $bind) {
+            $stmt->{$method}($bind->getName(), $bind->getValue());
         }
-        return $this;
     }
 
-    /**
-     * @param string $name
-     * @param RepositoryInterface $repository
-     * @return static
-     */
-    final public function withRecursive(string $name, RepositoryInterface $repository): static
-    {
-        $this->sqlParts['with_recursive'] = true;
-        return $this->with($name, $repository);
-    }
-
-    /**
-     * @param RepositoryInterface $repository
-     * @return static
-     */
-    final public function union(RepositoryInterface $repository): static
-    {
-        return $this->addUnion($repository, 'UNION');
-    }
-
-    /**
-     * @param RepositoryInterface $repository
-     * @return static
-     */
-    final public function unionAll(RepositoryInterface $repository): static
-    {
-        return $this->addUnion($repository, 'UNION ALL');
-    }
-
-    private function addUnion(RepositoryInterface $repository, string $keyword): static
-    {
-        if (isset($this->sqlParts['binds'])) {
-            if (!empty($repository->getSql('binds'))) {
-                $this->sqlParts['binds'] = [...$this->sqlParts['binds'], ...$repository->getSql('binds')];
-            }
-        } else {
-            $this->sqlParts['binds'] = $repository->getSql('binds');
-        }
-
-        $unionPart = $keyword . ' ' . $repository->buildSql();
-
-        if (isset($this->sqlParts['union'])) {
-            $this->sqlParts['union'] .= ' ' . $unionPart;
-        } else {
-            $this->sqlParts['union'] = $unionPart;
-        }
-        return $this;
-    }
+    // -------------------------------------------------------------------------
+    // Mapping
+    // -------------------------------------------------------------------------
 
     public function mapIdentifierColumnName(): string
     {

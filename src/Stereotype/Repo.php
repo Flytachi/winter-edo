@@ -4,16 +4,34 @@ declare(strict_types=1);
 
 namespace Flytachi\Winter\Edo\Stereotype;
 
-use Flytachi\Winter\Edo\Entity\RepositoryCrudInterface;
 use Flytachi\Winter\Edo\Entity\RepositoryViewInterface;
 use Flytachi\Winter\Edo\Repository\RepositoryCore;
-use Flytachi\Winter\Edo\Repository\RepositoryCrudTrait;
 use Flytachi\Winter\Edo\Repository\RepositoryViewTrait;
 
+/**
+ * Lightweight read-only repository for ad-hoc queries without a fixed table.
+ *
+ * Unlike the abstract stereotypes, `Repo` is a concrete final class that accepts
+ * the database config class at construction time. Use it for one-off queries
+ * that do not belong to a dedicated repository class.
+ *
+ * Example:
+ * ```
+ * $repo = new Repo(DbConfig::class);
+ * $results = $repo->from('reports r')
+ *     ->where(Qb::eq('r.active', true))
+ *     ->findAll();
+ * ```
+ *
+ * @see RepositoryView  For abstract repository classes with a fixed table
+ */
 final class Repo extends RepositoryCore implements RepositoryViewInterface
 {
     use RepositoryViewTrait;
 
+    /**
+     * @param class-string $dbConfigClassName Database configuration class name
+     */
     final public function __construct(string $dbConfigClassName)
     {
         $this->dbConfigClassName = $dbConfigClassName;

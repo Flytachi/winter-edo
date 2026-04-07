@@ -3,18 +3,33 @@
     "description": "Winter framework 'Entity of Database objects' component",
     "type": "library",
     "license": "MIT",
+    "homepage": "https://winterframe.net",
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-detail": "vendor/bin/phpunit --testdox"
+    },
+    "support": {
+        "source": "https://github.com/flytachi/winter-edo",
+        "docs": "https://winterframe.net/docs/edo"
+    },
     "autoload": {
         "psr-4": {
             "Flytachi\\Winter\\Edo\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Flytachi\\Winter\\Edo\\Tests\\": "tests/"
+        }
+    },
     "require": {
         "php": ">=8.3",
-        "flytachi/winter-cdo": "^1.0",
+        "flytachi/winter-cdo": "^2.0",
         "flytachi/winter-edo-mapping": "^1.0",
         "ext-pdo": "*"
     },
     "require-dev": {
+        "phpunit/phpunit": "@stable",
         "squizlabs/php_codesniffer": "@stable"
     },
     "authors": [

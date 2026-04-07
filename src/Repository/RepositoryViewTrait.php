@@ -5,43 +5,68 @@ declare(strict_types=1);
 namespace Flytachi\Winter\Edo\Repository;
 
 use Flytachi\Winter\Base\HttpCode;
+use Flytachi\Winter\Cdo\CDOBind;
+use Flytachi\Winter\Cdo\Connection\CDOStatement;
 use Flytachi\Winter\Cdo\Qb;
 use Flytachi\Winter\Edo\Entity\EntityException;
 use Flytachi\Winter\Edo\Entity\RepositoryViewInterface;
 use PDO;
 
 /**
+ * Provides concrete read-operation implementations for repository classes.
+ *
+ * Implements {@see RepositoryViewInterface} by building SQL via {@see RepositoryCore},
+ * executing it through CDO, and hydrating results into the configured entity class.
+ * All methods call {@see cleanCache()} after execution to reset the query builder state.
+ *
+ * Mix into any {@see RepositoryCore} subclass that needs read access:
+ * ```
+ * class UserRepository extends RepositoryCore implements RepositoryViewInterface
+ * {
+ *     use RepositoryViewTrait;
+ * }
+ * ```
+ *
  * @property string $entityClassName
- * @property array $sqlParts sql parameters
+ * @property array  $sqlParts sql parameters
  *
  * @mixin RepositoryViewInterface
  */
 trait RepositoryViewTrait
 {
     /**
-     * @param string $sql
-     * @param array $binds
-     * @param string|null $entityClassName
-     * @return array<object>
+     * Executes a raw SQL query with explicit binds and returns hydrated objects.
+     *
+     * @param string      $sql             Raw SQL string with named placeholders
+     * @param CDOBind[]   $binds           Array of {@see CDOBind} objects
+     * @param string|null $entityClassName Override entity class for hydration; null uses repository default
+     * @return array<object> Array of hydrated objects
      * @throws RepositoryException
      */
     final public function rawFetch(string $sql, array $binds = [], ?string $entityClassName = null): array
     {
         try {
-            $stmt = $this->db()->prepare($sql);
-            foreach ($binds as $key => $value) {
-                $stmt->bindValue($key, $value);
+            $stmt = new CDOStatement($this->db()->prepare($sql));
+            foreach ($binds as $bind) {
+                $stmt->bindTypedValue($bind->getName(), $bind->getValue());
             }
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_CLASS, $entityClassName ?: $this->entityClassName);
+            $stmt->getStmt()->execute();
+            return $stmt->getStmt()->fetchAll(
+                PDO::FETCH_CLASS,
+                $entityClassName ?: $this->entityClassName
+            );
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
-     * @param string|null $entityClassName
-     * @return null|object
+     * Executes the built query and returns the first matching row, or null.
+     *
+     * Automatically applies `LIMIT 1`. Calls {@see cleanCache()} after execution.
+     *
+     * @param string|null $entityClassName Override entity class for hydration
+     * @return object|null First matching entity, or null
      * @throws RepositoryException
      */
     final public function find(?string $entityClassName = null): ?object
@@ -51,48 +76,48 @@ trait RepositoryViewTrait
                 $this->entityClassName = $entityClassName;
             }
             $this->limit(1);
-            $stmt = $this->db()->prepare($this->buildSql());
-            // Bind
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                foreach ($this->sqlParts['binds'] as $hash => $value) {
-                    $stmt->bindValue($hash, $value);
-                }
-            }
-            $stmt->execute();
+            $stmt = new CDOStatement($this->db()->prepare($this->buildSql()));
+            $this->useBind($stmt);
+            $stmt->getStmt()->execute();
             $this->cleanCache();
-            return $stmt->fetchObject($entityClassName ?: $this->entityClassName) ?: null;
+            return $stmt->getStmt()->fetchObject(
+                $entityClassName ?: $this->entityClassName
+            ) ?: null;
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
-     * @param int $column column index (started from 0 index)
-     * @return mixed
+     * Executes the built query and returns a single column value from the first row.
+     *
+     * Automatically applies `LIMIT 1`. Calls {@see cleanCache()} after execution.
+     *
+     * @param int $column Zero-based column index (default 0)
+     * @return mixed Column value, or false if no row found
      * @throws RepositoryException
      */
     final public function findColumn(int $column = 0): mixed
     {
         try {
             $this->limit(1);
-            $stmt = $this->db()->prepare($this->buildSql());
-            // Bind
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                foreach ($this->sqlParts['binds'] as $hash => $value) {
-                    $stmt->bindValue($hash, $value);
-                }
-            }
-            $stmt->execute();
+            $stmt = new CDOStatement($this->db()->prepare($this->buildSql()));
+            $this->useBind($stmt);
+            $stmt->getStmt()->execute();
             $this->cleanCache();
-            return $stmt->fetchColumn($column);
+            return $stmt->getStmt()->fetchColumn($column);
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
-     * @param string|null $entityClassName
-     * @return array<object>
+     * Executes the built query and returns all matching rows.
+     *
+     * Calls {@see cleanCache()} after execution.
+     *
+     * @param string|null $entityClassName Override entity class for hydration
+     * @return array<object> Array of hydrated objects
      * @throws RepositoryException
      */
     final public function findAll(?string $entityClassName = null): array
@@ -101,45 +126,49 @@ trait RepositoryViewTrait
             if ($entityClassName) {
                 $this->entityClassName = $entityClassName;
             }
-            $stmt = $this->db()->prepare($this->buildSql());
-            // Bind
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                foreach ($this->sqlParts['binds'] as $hash => $value) {
-                    $stmt->bindValue($hash, $value);
-                }
-            }
-            $stmt->execute();
+
+            $stmt = new CDOStatement($this->db()->prepare($this->buildSql()));
+            $this->useBind($stmt);
+            $stmt->getStmt()->execute();
             $this->cleanCache();
-            return $stmt->fetchAll(PDO::FETCH_CLASS, $entityClassName ?: $this->entityClassName);
+            return $stmt->getStmt()->fetchAll(
+                PDO::FETCH_CLASS,
+                $entityClassName ?: $this->entityClassName
+            );
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
-     * @return int
+     * Returns the row count for the built query using `COUNT(*)`.
+     *
+     * If a custom {@see select()} is already set, wraps it: `COUNT(custom_expr)`.
+     * Calls {@see cleanCache()} after execution.
+     *
+     * @return int Row count
      * @throws RepositoryException
      */
     final public function count(): int
     {
         try {
             $this->sqlParts['option'] = 'COUNT(' . ($this->sqlParts['option'] ?? '*') . ')';
-            $stmt = $this->db()->prepare($this->buildSql());
-            // Bind
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                foreach ($this->sqlParts['binds'] as $hash => $value) {
-                    $stmt->bindValue($hash, $value);
-                }
-            }
-            $stmt->execute();
+            $stmt = new CDOStatement($this->db()->prepare($this->buildSql()));
+            $this->useBind($stmt);
+            $stmt->getStmt()->execute();
             $this->cleanCache();
-            return (int) $stmt->fetchColumn(0);
+            return (int) $stmt->getStmt()->fetchColumn(0);
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
+     * Returns true if at least one row matches the built query.
+     *
+     * Uses `SELECT 1 LIMIT 1` internally for efficiency.
+     * Calls {@see cleanCache()} after execution.
+     *
      * @return bool
      * @throws RepositoryException
      */
@@ -148,28 +177,24 @@ trait RepositoryViewTrait
         try {
             $this->sqlParts['option'] = '1';
             $this->limit(1);
-            $stmt = $this->db()->prepare($this->buildSql());
-            // Bind
-            if (isset($this->sqlParts['binds']) && !empty($this->sqlParts['binds'])) {
-                foreach ($this->sqlParts['binds'] as $hash => $value) {
-                    $stmt->bindValue($hash, $value);
-                }
-            }
-            $stmt->execute();
+            $stmt = new CDOStatement($this->db()->prepare($this->buildSql()));
+            $this->useBind($stmt);
+            $stmt->getStmt()->execute();
             $this->cleanCache();
-            return (bool) $stmt->fetchColumn(0);
+            return (bool) $stmt->getStmt()->fetchColumn(0);
         } catch (\Throwable $th) {
             throw new RepositoryException($th->getMessage(), previous: $th);
         }
     }
 
     /**
-     * Finds a record by its ID.
+     * Finds a single record by its primary key.
      *
-     * @param int|string $id The ID of the record to find.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
+     * Uses {@see mapIdentifierColumnName()} to determine the PK column (default: `'id'`).
      *
-     * @return object|null Returns the found record if it exists, or null if it does not.
+     * @param int|string  $id              Primary key value
+     * @param string|null $entityClassName Override entity class for hydration
+     * @return object|null Matching entity, or null
      * @throws RepositoryException
      */
     final public static function findById(int|string $id, ?string $entityClassName = null): ?object
@@ -181,12 +206,11 @@ trait RepositoryViewTrait
     }
 
     /**
-     * Finds records based on a Qb object.
+     * Finds a single record matching the given condition.
      *
-     * @param Qb $qb The Qb object containing the conditions for the find operation.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     *
-     * @return object|null Returns the found records if any exist, or null if none are found.
+     * @param Qb          $qb              WHERE condition
+     * @param string|null $entityClassName Override entity class for hydration
+     * @return object|null Matching entity, or null
      * @throws RepositoryException
      */
     final public static function findBy(Qb $qb, ?string $entityClassName = null): ?object
@@ -195,12 +219,11 @@ trait RepositoryViewTrait
     }
 
     /**
-     * Finds multiple records based on a set of conditions.
+     * Finds all records matching the given condition, or all rows when $qb is null.
      *
-     * @param null|Qb $qb The conditions to use for finding the records. Defaults to null.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     *
-     * @return array<object> Returns an array of found records if they exist, or false if no records are found.
+     * @param Qb|null     $qb              WHERE condition, or null to fetch all rows
+     * @param string|null $entityClassName Override entity class for hydration
+     * @return array<object>
      * @throws RepositoryException
      */
     final public static function findAllBy(?Qb $qb = null, ?string $entityClassName = null): array
@@ -211,15 +234,15 @@ trait RepositoryViewTrait
     }
 
     /**
-     * Finds a record by its ID or throws an error if the record is not found.
+     * Finds a record by its primary key, or throws if not found.
      *
-     * @param int|string $id The ID of the record to find.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     * @param string $message The error message to be thrown if the record is not found. Defaults to 'Object not found'.
-     * @param HttpCode $httpCode The HTTP status code to be used in the error response. Defaults to HttpCode::NOT_FOUND.
-     *
-     * @return object Returns the found record if it exists.
-     * @throws EntityException|RepositoryException
+     * @param int|string  $id              Primary key value
+     * @param string|null $entityClassName Override entity class for hydration
+     * @param string      $message         Exception message when not found
+     * @param HttpCode    $httpCode        HTTP status code when not found
+     * @return object Matching entity (never null)
+     * @throws EntityException      When the record is not found
+     * @throws RepositoryException
      */
     final public static function findByIdOrThrow(
         int|string $id,
@@ -235,15 +258,15 @@ trait RepositoryViewTrait
     }
 
     /**
-     * Finds a record using the provided Qb object and throws an error if the record does not exist.
+     * Finds a record matching the given condition, or throws if not found.
      *
-     * @param Qb $qb The Qb object used to search for the record.
-     * @param string|null $entityClassName The class name of the entity to use for the find operation. Defaults to null.
-     * @param string $message The error message to throw if the record is not found. Defaults to 'Object not found'.
-     * @param HttpCode $httpCode The HTTP status code to be used in the error response. Defaults to HttpCode::NOT_FOUND.
-     *
-     * @return object Returns the found record if it exists or throws
-     * @throws EntityException|RepositoryException
+     * @param Qb          $qb              WHERE condition
+     * @param string|null $entityClassName Override entity class for hydration
+     * @param string      $message         Exception message when not found
+     * @param HttpCode    $httpCode        HTTP status code when not found
+     * @return object Matching entity (never null)
+     * @throws EntityException      When no record matches the condition
+     * @throws RepositoryException
      */
     final public static function findByOrThrow(
         Qb $qb,
