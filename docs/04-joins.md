@@ -1,18 +1,19 @@
 # JOINs
 
 EDO supports five JOIN types, each accepting either a plain string or a
-repository subquery as the joined source. Multiple JOINs on a single query
-are concatenated in order.
+repository subquery as the joined source. The `$on` condition accepts either a
+plain string or a `Qb` instance (parameterised condition). Multiple JOINs on a
+single query are concatenated in order.
 
 ---
 
 ## Method signatures
 
 ```php
-final public function join(string|RepositoryInterface $repository, string $on): static
-final public function joinInner(string|RepositoryInterface $repository, string $on): static
-final public function joinLeft(string|RepositoryInterface $repository, string $on): static
-final public function joinRight(string|RepositoryInterface $repository, string $on): static
+final public function join(string|RepositoryInterface $repository, string|Qb $on): static
+final public function joinInner(string|RepositoryInterface $repository, string|Qb $on): static
+final public function joinLeft(string|RepositoryInterface $repository, string|Qb $on): static
+final public function joinRight(string|RepositoryInterface $repository, string|Qb $on): static
 final public function joinCross(string|RepositoryInterface $repository): static
 ```
 
@@ -72,6 +73,42 @@ UserRepository::instance('u')
 ```
 
 Binds from the subquery are merged into the parent query automatically.
+
+---
+
+## Qb ON condition — parameterised join
+
+Pass a `Qb` instance as `$on` to use parameterised placeholders in the join
+condition. Binds are merged into the parent query automatically.
+
+```php
+// Simple parameterised ON
+UserRepository::instance('u')
+    ->joinLeft('orders o', Qb::eq('u.id', $userId))
+    ->buildSql();
+// … LEFT JOIN orders o ON(u.id = :iqb0)
+
+// Composite ON condition
+UserRepository::instance('u')
+    ->joinLeft('orders o', Qb::and(
+        Qb::eq('u.id', $userId),
+        Qb::eq('o.active', true)
+    ))
+    ->buildSql();
+// … LEFT JOIN orders o ON(u.id = :iqb0 AND o.active = :iqb1)
+```
+
+Combining a repository subquery with a `Qb` ON is also supported — binds from
+both sources are merged:
+
+```php
+$recentOrders = OrderRepository::instance('o')
+    ->where(Qb::gt('o.created_at', '2024-01-01'));
+
+UserRepository::instance('u')
+    ->joinLeft($recentOrders, Qb::eq('u.id', $userId))
+    ->buildSql();
+```
 
 ---
 

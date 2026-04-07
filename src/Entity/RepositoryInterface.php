@@ -154,10 +154,10 @@ interface RepositoryInterface
      * Appends an `JOIN` clause.
      *
      * @param string|RepositoryInterface $repository Table name/subquery to join
-     * @param string                     $on         JOIN condition
+     * @param string|Qb                  $on         JOIN condition
      * @return static
      */
-    public function join(string|RepositoryInterface $repository, string $on): static;
+    public function join(string|RepositoryInterface $repository, string|Qb $on): static;
 
     /**
      * Appends a `CROSS JOIN` clause (no ON condition).
@@ -171,28 +171,28 @@ interface RepositoryInterface
      * Appends an `INNER JOIN` clause.
      *
      * @param string|RepositoryInterface $repository Table name/subquery to join
-     * @param string                     $on         JOIN condition
+     * @param string|Qb                  $on         JOIN condition
      * @return static
      */
-    public function joinInner(string|RepositoryInterface $repository, string $on): static;
+    public function joinInner(string|RepositoryInterface $repository, string|Qb $on): static;
 
     /**
      * Appends a `LEFT JOIN` clause.
      *
      * @param string|RepositoryInterface $repository Table name/subquery to join
-     * @param string                     $on         JOIN condition
+     * @param string|Qb                  $on         JOIN condition
      * @return static
      */
-    public function joinLeft(string|RepositoryInterface $repository, string $on): static;
+    public function joinLeft(string|RepositoryInterface $repository, string|Qb $on): static;
 
     /**
      * Appends a `RIGHT JOIN` clause.
      *
      * @param string|RepositoryInterface $repository Table name/subquery to join
-     * @param string                     $on         JOIN condition
+     * @param string|Qb                  $on         JOIN condition
      * @return static
      */
-    public function joinRight(string|RepositoryInterface $repository, string $on): static;
+    public function joinRight(string|RepositoryInterface $repository, string|Qb $on): static;
 
     /**
      * Sets the `WHERE` clause from a {@see Qb} condition builder.

@@ -343,18 +343,24 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
     // Query building — JOIN
     // -------------------------------------------------------------------------
 
-    private function joinedContext(string|RepositoryInterface $repository, string $on): string
+    private function joinedContext(string|RepositoryInterface $repository, string|Qb $on): string
     {
+        if ($on instanceof Qb) {
+            $this->binding($on->getBinds());
+            $onSql = $on->getQuery();
+        } else {
+            $onSql = $on;
+        }
         if (is_string($repository)) {
-            return $repository . " ON(" . $on . ")";
+            return $repository . " ON(" . $onSql . ")";
         }
         if (count($repository->sqlParts) > 1) {
             $this->binding($repository->getSql('binds'));
             return '(' . $repository->getSql() . ') '
-                . $repository->getSql('as') . " ON(" . $on . ")";
+                . $repository->getSql('as') . " ON(" . $onSql . ")";
         } else {
             return $repository->originTable()
-                . ' ' . $repository->getSql('as') . " ON(" . $on . ")";
+                . ' ' . $repository->getSql('as') . " ON(" . $onSql . ")";
         }
     }
 
@@ -385,7 +391,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      * @param string $on
      * @return static
      */
-    final public function join(string|RepositoryInterface $repository, string $on): static
+    final public function join(string|RepositoryInterface $repository, string|Qb $on): static
     {
         if (isset($this->sqlParts['join'])) {
             $this->sqlParts['join'] .= ' JOIN ' . $this->joinedContext($repository, $on);
@@ -400,7 +406,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      * @param string $on
      * @return static
      */
-    final public function joinInner(string|RepositoryInterface $repository, string $on): static
+    final public function joinInner(string|RepositoryInterface $repository, string|Qb $on): static
     {
         if (isset($this->sqlParts['join'])) {
             $this->sqlParts['join'] .= ' INNER JOIN ' . $this->joinedContext($repository, $on);
@@ -415,7 +421,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      * @param string $on
      * @return static
      */
-    final public function joinLeft(string|RepositoryInterface $repository, string $on): static
+    final public function joinLeft(string|RepositoryInterface $repository, string|Qb $on): static
     {
         if (isset($this->sqlParts['join'])) {
             $this->sqlParts['join'] .= ' LEFT JOIN ' . $this->joinedContext($repository, $on);
@@ -430,7 +436,7 @@ abstract class RepositoryCore extends Stereotype implements RepositoryInterface,
      * @param string $on
      * @return static
      */
-    final public function joinRight(string|RepositoryInterface $repository, string $on): static
+    final public function joinRight(string|RepositoryInterface $repository, string|Qb $on): static
     {
         if (isset($this->sqlParts['join'])) {
             $this->sqlParts['join'] .= ' RIGHT JOIN ' . $this->joinedContext($repository, $on);

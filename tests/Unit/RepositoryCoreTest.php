@@ -274,6 +274,54 @@ class RepositoryCoreTest extends TestCase
     }
 
     // -----------------------------------------------------------------------
+    // JOIN — Qb ON condition
+    // -----------------------------------------------------------------------
+
+    public function testJoinWithQbOn(): void
+    {
+        $qb = Qb::eq('u.id', 1);
+        $sql = $this->repo()->join('orders o', $qb)->buildSql();
+        $this->assertStringContainsString('JOIN orders o ON(u.id = ', $sql);
+    }
+
+    public function testJoinLeftWithQbOn(): void
+    {
+        $qb = Qb::eq('u.id', 42);
+        $sql = $this->repo()->joinLeft('orders o', $qb)->buildSql();
+        $this->assertStringContainsString('LEFT JOIN orders o ON(u.id = ', $sql);
+    }
+
+    public function testJoinInnerWithQbOn(): void
+    {
+        $qb = Qb::eq('u.id', 7);
+        $sql = $this->repo()->joinInner('orders o', $qb)->buildSql();
+        $this->assertStringContainsString('INNER JOIN orders o ON(u.id = ', $sql);
+    }
+
+    public function testJoinRightWithQbOn(): void
+    {
+        $qb = Qb::eq('u.id', 3);
+        $sql = $this->repo()->joinRight('orders o', $qb)->buildSql();
+        $this->assertStringContainsString('RIGHT JOIN orders o ON(u.id = ', $sql);
+    }
+
+    public function testJoinWithQbOnMergesBinds(): void
+    {
+        $qb = Qb::eq('u.role_id', 5);
+        $repo = $this->repo()->join('roles r', $qb);
+        $binds = $repo->getSql('binds');
+        $this->assertNotEmpty($binds);
+    }
+
+    public function testJoinWithCompositeQbOn(): void
+    {
+        $qb = Qb::and(Qb::eq('u.id', 1), Qb::eq('o.active', true));
+        $sql = $this->repo()->joinLeft('orders o', $qb)->buildSql();
+        $this->assertStringContainsString('LEFT JOIN orders o ON(', $sql);
+        $this->assertStringContainsString('AND', $sql);
+    }
+
+    // -----------------------------------------------------------------------
     // WHERE
     // -----------------------------------------------------------------------
 
