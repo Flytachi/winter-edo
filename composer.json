@@ -24,7 +24,7 @@
     },
     "require": {
         "php": ">=8.3",
-        "flytachi/winter-cdo": "^2.0",
+        "flytachi/winter-cdo": "^3.0",
         "flytachi/winter-edo-mapping": "^1.0",
         "ext-pdo": "*"
     },
